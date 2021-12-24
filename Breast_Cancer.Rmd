@@ -1,0 +1,327 @@
+---
+title: "Breast Cancer Data Analysis"
+author: "Jagadish Rao"
+date: "12/18/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+This analysis project is the culmination and final requirement of the **Google Data Analytics Professional Certificate**.  It aims to utilize the learning and best practices taught in the course. A sincere 'Thank You' to all my instructors, it was a great, well designed course.
+
+Cancer needs no introduction as a disease that inflicts its pain, suffering, leading to disfigurement and eventual death if not detected and treated early. Unfortunately, the early signs and symptoms of the disease and its progress are often neglected, missed or masked by other diseases.  Female breast cancer is a silent killer that can strike anytime, so knowing and proactively acting on the disease patterns is critical.  
+
+The identification of breast cancer trends in the USA has been selected for this project. This analysis is approached from a data analytics perspective and has no claims to being a substitute or auxiliary to a professional medical study or advice.
+
+
+## Analysis Objectives
+There are many open questions that this analysis seeks to answer:  
+
+- Does cancer rate vary by geographical location
+- Does race play a part  
+- Does increasing age lead to a higher risk  
+- Is there a relationship between race and age as related to cancer risk
+
+## Raw Data
+United States Cancer Statistics - Incidence: 1999 - 2018, WONDER Online Database. United States Department of Health and Human Services, Centers for Disease Control and Prevention and National Cancer Institute; 2021.
+
+Dataset: United States and Puerto Rico Cancer Statistics, 1999-2018 Incidence
+
+https://wonder.cdc.gov/cancer-v2018.HTML
+
+Query Parameters:  
+Age Groups: 10-14 years; 15-19 years; 20-24 years; 25-29 years; 30-34 years; 35-39 years; 40-44 years; 45-49 years; 50-54 years;
+55-59 years; 60-64 years ; 65-69 years; 70-74 years; 75-79 years; 80-84 years; 85+ years  
+Cancer Sites: Female Breast  
+Race: American Indian or Alaska Native; Asian or Pacific Islander; Black or African American; White  
+Sex: Female  
+States: Alabama (01); Alaska (02); Arizona (04); Arkansas (05); California (06); Colorado (08); Connecticut (09); Delaware (10);
+District of Columbia (11); Florida (12); Georgia (13); Hawaii (15); Idaho (16); Illinois (17); Indiana (18); Iowa (19); Kansas
+(20); Kentucky (21); Louisiana (22); Maine (23); Maryland (24); Massachusetts (25); Michigan (26); Minnesota (27); Mississippi
+(28); Missouri (29); Montana (30); Nebraska (31); Nevada (32); New Hampshire (33); New Jersey (34); New Mexico (35); New York
+(36); North Carolina (37); North Dakota (38); Ohio (39); Oklahoma (40); Oregon (41); Pennsylvania (42); Rhode Island (44); South
+Carolina (45); South Dakota (46); Tennessee (47); Texas (48); Utah (49); Vermont (50); Virginia (51); Washington (53); West
+Virginia (54); Wisconsin (55); Wyoming (56)  
+Year: 2000; 2001; 2002; 2003; 2004; 2005; 2006; 2007; 2008; 2009; 2010; 2011; 2012; 2013; 2014; 2015; 2016; 2017; 2018  
+Group By: Cancer Sites; States; Year; Race; Age Groups  
+Calculate Rates Per: 100,000  
+Standard Population: 2000 U.S. Std. Million  
+
+Cancer incidence (rate) data is standardized to a population of 100k.  
+Data is not available if the rate is less than 16.
+
+The raw data was downloaded in four separate text data files due to CDC site download size restrictions.  The downloaded files were then renamed to more user friendly titles. 
+
+- breast_cancer_2000_2004.txt
+- breast_cancer_2005_2009.txt
+- breast_cancer_2010_2013.txt
+- breast_cancer_2014_2018.txt
+
+## Tools
+Language: R
+
+Environment: RStudio 2021.09.1+372 "Ghost Orchid" Release (8b9ced188245155642d024aa3630363df611088a, 2021-11-08) for macOS
+
+## Data Organization
+The downloaded raw data files are tab delimited text files with Header.
+
+The four raw data files are located in a sub folder named "data".
+
+***
+
+## Processing and Analysis
+
+##### R packages Load
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(here)
+library(janitor)
+library(skimr)
+library(validate)
+library(usmap)
+```
+
+
+##### Raw data Read
+```{r}
+bcdata_2000_2004 <- read.delim(here("data", "breast_cancer_2000_2004.txt"))
+bcdata_2005_2009 <- read.delim(here("data", "breast_cancer_2005_2009.txt"))
+bcdata_2010_2013 <- read.delim(here("data", "breast_cancer_2010_2013.txt"))
+bcdata_2014_2018 <- read.delim(here("data", "breast_cancer_2014_2018.txt"))
+```
+
+
+##### Raw data Merge
+```{r}
+bcdata <- bind_rows(bcdata_2000_2004, bcdata_2005_2009, bcdata_2010_2013, bcdata_2014_2018)
+```
+
+##### Column names to lowercase
+```{r}
+bcdata <- clean_names(bcdata)
+```
+
+
+##### Columns selection for analysis
+```{r}
+bcdata <- bcdata %>%
+  select(states, year, race, age_groups_code, count)
+```
+
+
+##### Columns rename for clarity
+```{r}
+bcdata <- bcdata %>%
+  rename(state = states, age_grp = age_groups_code, count_100k = count)
+```
+
+At this point, all the data has been loaded, relevant columns selected and renamed.  
+
+##### Data Checking
+```{r}
+skim(bcdata)
+
+tabyl(bcdata, state, year)
+tabyl(bcdata, state, age_grp)
+tabyl(bcdata, state, race)
+
+#create data validation rules
+rules <- validator(state != "",
+  year >= 2000,
+  year <= 2018,
+  race != "",
+  age_grp != "",
+  count_100k >= 0)
+
+# verify data using rules
+confront(bcdata, rules)
+
+
+# The above data checking shows that:
+# Arkansas is missing data for year 2000
+# Mississippi is missing data for year 2000-2002
+# Nevada is missing data for year 2018
+# South Dakota is missing data for year 2000
+# age_group 20-24 is missing data for almost all (48) states
+# Race - American Indian or Alaska Native is missing data for most states (42), as expected
+
+# For an unbiased analysis -
+# Remove data for all states for years 2000-2002, 2018
+# Remove data for age_group 20-24
+bcdata <- bcdata %>% 
+  filter(year %in%  c(2003:2017),
+         age_grp != "20-24")
+
+# Verify that no more errors
+confront(bcdata, rules)
+```
+
+
+##### Save the cleaned data set
+```{r}
+write_csv(bcdata, here("data", "bcdata.csv"))
+```
+
+
+
+## Data Analysis
+
+### Cancer distribution by State
+```{r}
+
+# find the mean cancer rate per state
+bcdata_state_mean <- 
+  bcdata %>% 
+  group_by(state) %>% 
+  summarise(state_mean = mean(count_100k))
+
+# plot a column graph 
+bcdata_state_mean %>%
+  ggplot(aes(x = state_mean, y = reorder(state, -state_mean)))  +
+  geom_col(color = "brown", fill="red", width = 0.6) +
+  xlab("Cancer Rate/100k population") +
+  ylab("States") +
+  labs(title = "Breast Cancer Rate by State", subtitle = "Years 2003 - 2017\n")
+
+
+# plot a map  
+plot_usmap(data = bcdata_state_mean, regions = "states", values = "state_mean") +
+  scale_fill_continuous(name = "Cancer Rate/100k population", low = "white", high = "red") + 
+  theme(legend.position = "right") + 
+  labs(title = "Breast Cancer Rate by State", subtitle = "Years 2003 - 2017") +
+  theme(plot.title = element_text(face="bold"))
+
+```
+
+
+
+### Cancer distribution by Race
+```{r message=FALSE, warning=FALSE}
+
+# plot of cancer rate by race 
+bcdata %>%
+  group_by(race) %>% 
+  summarise(race_rate = mean(count_100k)) %>% 
+  ggplot(aes(x = race_rate, y = reorder(race, -race_rate)))  +
+  geom_col(color = "brown", fill="red", width = 0.6) +
+  theme(aspect.ratio = 1/3)  +
+  xlab("Cancer Rate/100k population") +
+  ylab("Race") +
+  labs(title = "Breast Cancer Rate by Race", subtitle = "Years 2003 - 2017\n") +
+  theme(plot.title = element_text(face="bold"))
+
+
+# find the mean cancer rate by Race
+bcdata_race <- 
+  bcdata %>% 
+  group_by(race, state) %>% 
+  summarise(race_mean = mean(count_100k))
+
+# plot race = American Indian
+bcdata_race_type <- bcdata_race %>% 
+  filter(race == "American Indian or Alaska Native")
+
+# plot a map
+plot_usmap(data = bcdata_race_type, regions = "states", values = "race_mean") +
+  scale_fill_continuous(name = "Cancer Rate/100k population", low = "white", high = "red") + 
+  theme(legend.position = "right") + 
+  labs(title = "Cancer Rate by State and Race", subtitle = "Race - American Indian or Alaska Native") +
+  theme(plot.title = element_text(face="bold"))
+
+
+# plot race = Asian or Pacific Islander
+bcdata_race_type <- bcdata_race %>% 
+  filter(race == "Asian or Pacific Islander")
+
+# plot a map
+plot_usmap(data = bcdata_race_type, regions = "states", values = "race_mean") +
+  scale_fill_continuous(name = "Cancer Rate/100k population", low = "white", high = "red") + 
+  theme(legend.position = "right") + 
+  labs(title = "Cancer Rate by State and Race", subtitle = "Race - Asian or Pacific Islander") +
+  theme(plot.title = element_text(face="bold"))
+
+
+# plot race = Black or African American
+bcdata_race_type <- bcdata_race %>% 
+  filter(race == "Black or African American")
+
+# plot a map
+plot_usmap(data = bcdata_race_type, regions = "states", values = "race_mean") +
+  scale_fill_continuous(name = "Cancer Rate/100k population", low = "white", high = "red") + 
+  theme(legend.position = "right") + 
+  labs(title = "Cancer Rate by State and Race", subtitle = "Race - Black or African American") +
+  theme(plot.title = element_text(face="bold"))
+
+
+# plot race = White
+bcdata_race_type <- bcdata_race %>% 
+  filter(race == "White")
+
+# plot a map
+plot_usmap(data = bcdata_race_type, regions = "states", values = "race_mean") +
+  scale_fill_continuous(name = "Cancer Rate/100k population", low = "white", high = "red") + 
+  theme(legend.position = "right") + 
+  labs(title = "Cancer Rate by State and Race", subtitle = "Race - White") +
+  theme(plot.title = element_text(face="bold"))
+
+```
+
+
+### Cancer Distribution by Age Group
+```{r message=FALSE, warning=FALSE}
+bcdata_age_grp_mean <- 
+  bcdata %>% 
+  group_by(age_grp) %>% 
+  summarise(age_grp_rate = mean(count_100k))
+
+# plot the graph
+bcdata_age_grp_mean  %>%
+  ggplot(aes(x = age_grp_rate, y = age_grp))  +
+  geom_col(color = "brown", fill="red", width = 0.6) +
+  xlab("Cancer Rate/100k population") +
+  ylab("Age Group") +
+  labs(title = "Breast Cancer Rate by Age Group", subtitle = "Years 2003 - 2017\n") +
+  theme(plot.title = element_text(face="bold"))
+
+bcdata %>% 
+  group_by(age_grp, race) %>% 
+  summarise(age_grp_rate = mean(count_100k)) %>% 
+  ggplot(aes(x = age_grp_rate, y = age_grp))  +
+  geom_col(color = "brown", fill="red", width = 0.6) +
+  xlab("Cancer Rate/100k population") +
+  ylab("Age Group") +
+  labs(title = "Breast Cancer Rate by Age Group and Race", subtitle = "Years 2003 - 2017\n") +
+  theme(plot.title = element_text(face="bold")) +
+  facet_wrap(~race)
+
+```
+
+
+## Conclusions
+
+The following inferences are derived from the analysis:
+
+1. Cancer incidence rate varies by geographical location (State).  Since individual states are comprised of populations of different races and ages, it is the composite of these variables that determines the cancer rate of a state.  For instance, California and Florida have the highest incidence of cancer rates. Analysis shows us that white women have the highest rate, along with higher rates in late to middle age.  Combining these two insights with the tendency of California and Florida to be retirement states is the likely cause that these states have high cancer rates. 
+
+2. Race has an impact on the cancer rate with White being the highest.  This may be due to factors such as lifestyle and genetics, and it is possible for results to be influenced by additional factors listed below.
+
+3. Increasing age leads to a higher risk, with a peak at 65-69 years followed by decreasing risk. This is observed across all races, however the overall cancer rate varies by race, with White being the highest.
+
+4. There is a relationship between race and age related cancer risk.  The pattern of increasing cancer rate as age increases upto 65 years followed by a decline is consistent across all races.  However the overall cancer rate varies by race.
+
+ 
+Cancer incidence rate variations are also likely due to certain factors not addressed by this analysis.  
+
+- Better access to medical care (Doctor/Hospital to population ratio) that leads to a higher detection/incidence rate  
+- Dietary choices  
+- Income levels that afford access to medical care or restrict it  
+- Awareness and motivation for regular breast cancer screening
+
+To summarise, there are numerous factors, many of which are outside the scope of this analysis that play a part in predicting a breast cancer probability.  The variables used in this analysis are historical statistics that only serve as trend indicators and merit deeper scientific scrutiny with relevent datasets.
+
+***
+
+
