@@ -2,7 +2,11 @@
 title: "Breast Cancer Data Analysis"
 author: "Jagadish Rao"
 date: "12/18/2021"
-output: html_document
+output:
+  html_document:
+    df_print: paged
+  pdf_document:
+    latex_engine: xelatex
 ---
 
 ```{r setup, include=FALSE}
@@ -21,8 +25,8 @@ The identification of breast cancer trends in the USA has been selected for this
 There are many open questions that this analysis seeks to answer:  
 
 - Does cancer rate vary by geographical location
-- Does race play a part  
-- Does increasing age lead to a higher risk  
+- Does race play a part
+- Does increasing age lead to a higher risk
 - Is there a relationship between race and age as related to cancer risk
 
 ## Raw Data
@@ -182,6 +186,7 @@ bcdata_state_mean <-
 bcdata_state_mean %>%
   ggplot(aes(x = state_mean, y = reorder(state, -state_mean)))  +
   geom_col(color = "brown", fill="red", width = 0.6) +
+  theme(text = element_text(size = 8)) +
   xlab("Cancer Rate/100k population") +
   ylab("States") +
   labs(title = "Breast Cancer Rate by State", subtitle = "Years 2003 - 2017\n")
@@ -315,13 +320,19 @@ The following inferences are derived from the analysis:
  
 Cancer incidence rate variations are also likely due to certain factors not addressed by this analysis.  
 
-- Better access to medical care (Doctor/Hospital to population ratio) that leads to a higher detection/incidence rate  
-- Dietary choices  
-- Income levels that afford access to medical care or restrict it  
-- Awareness and motivation for regular breast cancer screening
+1. Better access to medical care (Doctor/Hospital to population ratio) that leads to a higher detection/incidence rate  
+2. Dietary choices  
+3. Income levels that afford access to medical care or restrict it  
+4. Awareness and motivation for regular breast cancer screening
 
 To summarise, there are numerous factors, many of which are outside the scope of this analysis that play a part in predicting a breast cancer probability.  The variables used in this analysis are historical statistics that only serve as trend indicators and merit deeper scientific scrutiny with relevent datasets.
 
-***
+
+---
+
+
+
+
+
 
 
